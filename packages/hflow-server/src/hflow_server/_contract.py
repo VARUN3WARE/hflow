@@ -120,10 +120,10 @@ class WorkspaceCapabilities(BaseModel):
     catalog: bool
     media: bool
     curation: bool = Field(
-        description="Whether the curation studio's durable state can be written at "
-        "all: saved queries, the pinned-manifest registry, and the manifest files "
-        "need a LOCAL data root, so a bucket-backed workspace answers 501 for every "
-        "one of them and the frontend should not offer them."
+        description="Whether the curation studio's durable state can be written: "
+        "saved queries, the pinned-manifest registry, and pinned manifests. "
+        "True for local and bucket-backed workspaces (pin and the sidecar write "
+        "through StorageRoot). Distinct from media, which still needs local paths."
     )
     runtime: bool
     pipeline: bool
