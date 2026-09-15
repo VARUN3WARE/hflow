@@ -94,6 +94,49 @@ def test_config_reports_missing_catalog(empty_workspace_api: TestClient) -> None
     payload = empty_workspace_api.get("/api/v1/config").json()
     assert payload["capabilities"]["catalog"] is False
     assert payload["capabilities"]["media"] is True  # local root: serving is possible
+    assert payload["capabilities"]["curation"] is True
+
+
+def test_config_reports_curation_on_bucket_without_media(
+    tmp_path: Path,
+    unbuilt_assets_dir: Path,
+    no_ambient_runtime: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Bucket workspaces can pin/sidecar; only media stays local-only.
+
+    ``file://`` strings parse as local roots, so the test drives a real
+    ``BucketStorageRoot`` through Workspace.parse and forces the media
+    predicate to None the same way ``gs://`` / ``s3://`` do.
+    """
+    import hflow_server.server as server_mod
+
+    from hflow.catalog import Catalog
+    from hflow.storage import BucketStorageRoot
+
+    remote_dir = tmp_path / "bucket"
+    remote_dir.mkdir()
+    bucket_root = BucketStorageRoot(
+        f"file://{remote_dir}",
+        mirror=tmp_path / "bucket-mirror",
+    )
+    Catalog(bucket_root.child("catalog"))
+
+    monkeypatch.setattr(
+        server_mod.Workspace,
+        "parse",
+        classmethod(lambda cls, _data_root: Workspace(storage_root=bucket_root)),
+    )
+    monkeypatch.setattr(server_mod, "local_data_root_or_none", lambda _data_root: None)
+
+    settings = ServerSettings(
+        data_root="gs://capability-test/workspace",
+        assets_dir=unbuilt_assets_dir,
+    )
+    payload = TestClient(create_app(settings)).get("/api/v1/config").json()
+    assert payload["capabilities"]["curation"] is True
+    assert payload["capabilities"]["media"] is False
+    assert payload["capabilities"]["catalog"] is True
 
 
 def test_config_reports_a_minted_workspace_identity(tmp_path: Path) -> None:
